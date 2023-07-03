@@ -38,8 +38,7 @@ unsigned char payload[] =
 unsigned int payload_len = 434;
 
 
-extern __declspec(dllexport) int injectme(void); 
-int injectme(void) {
+extern __declspec(dllexport) int injectme(void) {
     void * pAddress;
     DWORD oldprotect = 0;
 

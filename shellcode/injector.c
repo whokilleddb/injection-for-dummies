@@ -139,7 +139,12 @@ int inject_proc(HANDLE hProc, unsigned char * payload, unsigned int payload_len)
         return -4;
     }
 
-    WaitForSingleObject(hThread, -1);
+    int _result = WaitForSingleObject(hThread, -1);
+    if (_result != 0) {
+        fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
+        CloseHandle(hThread);        
+        return -5;
+    } 
     CloseHandle(hThread);
     return 0;
 }
