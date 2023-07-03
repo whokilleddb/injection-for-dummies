@@ -5,9 +5,7 @@
 #include <tlhelp32.h>
 
 #define TARGET "notepad.exe"
-//#define DLL_PATH ".\\injectme.dll"
-//#define DLL_PATH "C:\\Users\\whokilleddb\\Codes\\injection-for-dummies\\dll\\injectme.dll"
-#define DLL_PATH "Z:\\02.DLL\\implantDLL.dll"
+#define DLL_PATH "C:\\Users\\whokilleddb\\Codes\\injection-for-dummies\\dll\\injectme.dll"
 
 // Find PID from a Process Name
 DWORD find_pid(const char* procname) {
@@ -114,6 +112,14 @@ int inject_proc(HANDLE hProcess) {
         CloseHandle(hModule);
         return -1;
     }
+
+    int _result =  WaitForSingleObject(hThread, -1);
+    if (_result != 0) {
+        fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
+        CloseHandle(hThread);    
+        CloseHandle(hModule);      
+        return -1;
+    } 
 
     CloseHandle(hThread);
     CloseHandle(hModule);    
