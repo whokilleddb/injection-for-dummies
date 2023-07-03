@@ -134,13 +134,14 @@ int inject_proc(HANDLE hProc, unsigned char * payload, unsigned int payload_len)
         NULL                // The thread identifier is not returned
     );
 
-    if (hThread != NULL) {
-        WaitForSingleObject(hThread, -1);
-        CloseHandle(hThread);
-        return 0;
+    if (hThread == NULL) {
+        fprintf(stderr, "[!] CreateRemoteThread() failed (0x%x)\n", GetLastError());
+        return -4;
     }
 
-    return -4;
+    WaitForSingleObject(hThread, -1);
+    CloseHandle(hThread);
+    return 0;
 }
 
 int main(void) {
