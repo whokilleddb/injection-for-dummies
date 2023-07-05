@@ -102,7 +102,11 @@ extern __declspec(dllexport) int injectme(void) {
 BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved ) {
     switch ( fdwReason ) {
         case DLL_PROCESS_ATTACH:
-            injectme();
+            int result = injectme(); 
+            if (result != 0) 
+                fprintf(stderr, "[!] Injection failed\n");
+            else 
+                printf("[i] Injection successful!\n");
             break;
         case DLL_THREAD_ATTACH:
             break;
