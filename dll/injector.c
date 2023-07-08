@@ -51,14 +51,27 @@ DWORD find_pid(const char* procname) {
 }
 
 // DLL Inject into Process
-int inject_proc(HANDLE hProcess) {
+int inject_proc(DWORD pid) {
     printf("[i] Injecting: %s (%d)\n", DLL_PATH, sizeof(DLL_PATH));
 
+    // Open handle to another process
+	HANDLE hProcess = OpenProcess(
+        PROCESS_ALL_ACCESS,         // Process permissions
+        FALSE,                      // Do not inherit handles 
+        pid                         // PID of remote process
+    );
+    
+    // Check handle version
+    if (hProcess == INVALID_HANDLE_VALUE) {
+        fprintf("[!] OpenProcess() failed (0x%x)\n", GetLastError());
+        return -2;
+    }
     // Resolve LoadLibrary
     // Get a Handle to Kernel32.dll
     HANDLE hModule = GetModuleHandle("Kernel32.dll");
     if (hModule == INVALID_HANDLE_VALUE) {
         fprintf(stderr, "[!] GetModuleHandle() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
         return -1;
     }
 
@@ -66,8 +79,10 @@ int inject_proc(HANDLE hProcess) {
     PTHREAD_START_ROUTINE pLoadLibrary = (PTHREAD_START_ROUTINE) GetProcAddress(hModule, "LoadLibraryA");
     if (pLoadLibrary == NULL) {
         fprintf(stderr, "[!] GetProcAddress() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
         return -1;
     }
+
     // Close handle as it is not required anymore
     CloseHandle(hModule); 
 
@@ -82,6 +97,7 @@ int inject_proc(HANDLE hProcess) {
 
     if (pAddr == NULL) {
         fprintf(stderr, "[!] VirtualAllocEx() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
         return -1;
     }
 
@@ -95,6 +111,7 @@ int inject_proc(HANDLE hProcess) {
 
     if (!result) {
         fprintf(stderr, "[!] WriteProcessMemory() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
         return -1;
     }
 
@@ -110,6 +127,7 @@ int inject_proc(HANDLE hProcess) {
     
     if (hThread == INVALID_HANDLE_VALUE) {
         fprintf(stderr, "[!] CreateRemoteThread() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
         return -1;
     }
 
@@ -117,11 +135,12 @@ int inject_proc(HANDLE hProcess) {
     if (_result != 0) {
         fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
         CloseHandle(hThread);    
+        CloseHandle(hProcess);
         return -1;
     } 
 
     CloseHandle(hThread);
-       
+    CloseHandle(hProcess);
     return 0;
 }
 
@@ -134,27 +153,12 @@ int main(int argc, char *argv[]) {
 
 	printf("[i] %s: %d\n", TARGET, pid);
 
-    // Open handle to another process
-	HANDLE hProc = OpenProcess(
-        PROCESS_ALL_ACCESS,         // Process permissions
-        FALSE,                      // Do not inherit handles 
-        pid                         // PID of remote process
-    );
-
-    // Check handle version
-    if (hProc == INVALID_HANDLE_VALUE) {
-        fprintf("[!] OpenProcess() failed (0x%x)\n", GetLastError());
-        return -2;
-    }
-
-    int result = inject_proc(hProc);
+    int result = inject_proc(pid);
     if (result < 0) {
         fprintf(stderr, "[!] Injection failed\n");
-        CloseHandle(hProc);
         return -1;
     }
 
     printf("[i] Injection Complete!\n");
-    CloseHandle(hProc);
     return 0;
 }
