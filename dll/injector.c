@@ -68,6 +68,8 @@ int inject_proc(HANDLE hProcess) {
         fprintf(stderr, "[!] GetProcAddress() failed (0x%x)\n", GetLastError());
         return -1;
     }
+    // Close handle as it is not required anymore
+    CloseHandle(hModule); 
 
     // Allocate Memory to store DLL Path
     PVOID pAddr = VirtualAllocEx(
@@ -93,7 +95,6 @@ int inject_proc(HANDLE hProcess) {
 
     if (!result) {
         fprintf(stderr, "[!] WriteProcessMemory() failed (0x%x)\n", GetLastError());
-        CloseHandle(hModule);
         return -1;
     }
 
@@ -109,7 +110,6 @@ int inject_proc(HANDLE hProcess) {
     
     if (hThread == INVALID_HANDLE_VALUE) {
         fprintf(stderr, "[!] CreateRemoteThread() failed (0x%x)\n", GetLastError());
-        CloseHandle(hModule);
         return -1;
     }
 
@@ -117,12 +117,11 @@ int inject_proc(HANDLE hProcess) {
     if (_result != 0) {
         fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
         CloseHandle(hThread);    
-        CloseHandle(hModule);      
         return -1;
     } 
 
     CloseHandle(hThread);
-    CloseHandle(hModule);    
+       
     return 0;
 }
 
