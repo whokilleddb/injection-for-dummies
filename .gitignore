@@ -3,3 +3,4 @@
 *.exp
 *.lib
 *.dll
+.vscode/

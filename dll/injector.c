@@ -51,7 +51,7 @@ DWORD find_pid(const char* procname) {
 }
 
 // DLL Inject into Process
-int inject_proc(DWORD pid) {
+int inject_dll_path(DWORD pid) {
     printf("[i] Injecting: %s (%d)\n", DLL_PATH, sizeof(DLL_PATH));
 
     // Open handle to another process
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
 
 	printf("[i] %s: %d\n", TARGET, pid);
 
-    int result = inject_proc(pid);
+    int result = inject_dll_path(pid);
     if (result < 0) {
         fprintf(stderr, "[!] Injection failed\n");
         return -1;
