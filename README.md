@@ -1,5 +1,9 @@
 # injection-for-dummies
-A collection of PoCs for different injection techniques on Windows! 
+Injection is one of the most common techniques malware authors use to run malicious code on a victim system in the context of another program. This is very useful because it can often help to avoid a defender's prying eyes. 
+
+For example, Explorer making web requests to an external server is considered normal behavior, whereas a rogue executable or C2 payload doing the same raises alerts all around.
+
+In this repository, we discuss some of the most popular injection techniques and look into some code for each. The different kinds of injection techniques we talk of in this blog are as follows:
 
 | Name | Description |
 |---|--|
@@ -7,4 +11,13 @@ A collection of PoCs for different injection techniques on Windows!
 | Dll Path Injection | Force remote process to load a malicious Dll |
 | Thread Context | Hijack remote process's thread to execute malicious shellcode |
 | APC | Use APC calls to run Remote payload Asynchronously |
-| Earlybird | A modification of the APC technique | 
+| Earlybird | A modification of the APC technique |gi 
+
+## Notes
+
+- The payload used in most cases here is a `Windows Message Box` payload which says `"Hello World!"`, unless mentioned otherwise. 
+- The provided PoCs depicted in the respective `README` files are not "clean codes", and lack error checking mechanisms for the sake of simplicity. Refer to the source files for more robust code.
+- Some functions like `find_pid()` and `find_threadid()` have been reused over and over again.
+- Most WinAPI functions have been commented to explain the parameters. In case any function lacks comments, refer to the WinAPI documentation. 
+- The `TARGET` macro expands to `notepad.exe`, unless specifies, and denotes the target process to inject into.
+- The `IS_HANDLE_INVALID` macro checks if a `HANDLE` value is invalid , i.e, if it is equal to `NULL` or `INVALID_HANDLE_VALUE`
