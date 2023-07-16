@@ -73,3 +73,4 @@ If the function runs successfully, a handle to the remote thread (`hThread`) is 
 Compiling and running the program should run our injector code and prompt a `Hello World!` message box running under *Notepad.exe*.
 This should inject our shellcode and we should have a Hello World! message running under **Notepad.exe**, indicating that our injection was successful.
 
+![Injection PoC](./imgs/shellcode.png)
