@@ -19,4 +19,5 @@ In this repository, we discuss some of the most popular injection techniques and
 - The provided PoCs depicted in the respective `README` files are not "clean codes", and lack error checking mechanisms for the sake of simplicity. Refer to the source files for more robust code.
 - Some functions like `find_pid()` and `find_threadid()` have been reused over and over again.
 - Most WinAPI functions have been commented to explain the parameters. In case any function lacks comments, refer to the WinAPI documentation. 
- 
+- The `TARGET` macro expands to `notepad.exe`, unless specifies, and denotes the target process to inject into.
+- The `IS_HANDLE_INVALID` macro checks if a `HANDLE` value is invalid , i.e, if it is equal to `NULL` or `INVALID_HANDLE_VALUE`
