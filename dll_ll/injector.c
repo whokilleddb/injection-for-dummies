@@ -53,7 +53,7 @@ DWORD find_pid(const char* procname) {
 
 // DLL Inject into Process
 int inject_dll_ll(DWORD pid) {
-    printf("[i] Injecting: %s (%d)\n", DLL_PATH, sizeof(DLL_PATH));
+    printf("[i] Injecting DLL: %s\n", DLL_PATH);
 
     // Open handle to another process
 	HANDLE hProcess = OpenProcess(
