@@ -13,6 +13,9 @@ In this repository, we discuss some of the most popular injection techniques and
 | APC | Use APC calls to run Remote payload Asynchronously |
 | Earlybird | A modification of the APC technique |gi 
 
+## Pre-requisites
+Though I have tried to be verbose with the techniques here, it is highly recommended that the reader is familiar with basics of C programming on Windows and is familiar with the commonly used functions like `VirtualAlloc()`, `VirtualProctect()`, `GetProcAddress()`, `GetModuleHandle()`, etc.
+
 ## Notes
 
 - The payload used in most cases here is a `Windows Message Box` payload which says `"Hello World!"`, unless mentioned otherwise. 

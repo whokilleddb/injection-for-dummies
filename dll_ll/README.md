@@ -87,3 +87,9 @@ int inject_dll_ll(DWORD pid) {
     return 0;
 }
 ```
+
+For injecting our DLL into the target process, we would use the `LoadLibraryA()` function from `kernel32.dll` to load our DLL into the target process's virtual memory. This method, however has certain drawbacks:
+- It registers the DLL with the process so it might set off some flags to alert defenders
+- If a DLL has already been loaded once with `LoadLibraryA()`, it would not trigger execution on subsequent attempts. 
+
+With that in mind, lets walk through the code. First, we open a open a handle to the target process(`hProcess`). Then, we resolve the address of `LoadLibraryA` function from `kernel32.dll` using
