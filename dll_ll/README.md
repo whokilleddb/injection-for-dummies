@@ -113,3 +113,9 @@ As soon as the instruction is executed and the DLL is attached to the process, t
 
 When compiled and run, we should have our `Hello World!` message box popup from the target process.
 
+![](./imgs/dll_ll_0.png)
+
+If we examine the target process(`Notepad.exe`) with a tool like `Process Hacker`, we should see our malicious DLL in the list of modules loaded by the process.
+
+![](./imgs/dll_ll_1.png)
+
