@@ -69,7 +69,7 @@ int inject_dll_ll(DWORD pid) {
     }
     // Resolve LoadLibrary
     // Get a Handle to Kernel32.dll
-    HANDLE hModule = GetModuleHandle("Kernel32.dll");
+    HMODULE hModule = GetModuleHandle("Kernel32.dll");
     if (IS_HANDLE_INVALID(hModule)) {
         fprintf(stderr, "[!] GetModuleHandle() failed (0x%x)\n", GetLastError());
         CloseHandle(hProcess);

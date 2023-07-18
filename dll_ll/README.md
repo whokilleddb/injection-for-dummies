@@ -77,7 +77,7 @@ int inject_dll_ll(DWORD pid) {
 	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
     HANDLE hModule = GetModuleHandle("Kernel32.dll");
     PTHREAD_START_ROUTINE pLoadLibrary = (PTHREAD_START_ROUTINE) GetProcAddress(hModule, "LoadLibraryA");
-    CloseHandle(hModule); 
+    CloseHandle(hModule);
     PVOID pAddr = VirtualAllocEx(hProcess, NULL, sizeof(DLL_PATH), MEM_COMMIT, PAGE_READWRITE);
     BOOL result = WriteProcessMemory(hProcess, pAddr, (LPVOID)DLL_PATH, sizeof(DLL_PATH),  NULL);
     HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0, pLoadLibrary, pAddr, 0, NULL);
@@ -87,9 +87,17 @@ int inject_dll_ll(DWORD pid) {
     return 0;
 }
 ```
+> Here, the `DLL_PATH` macro expands to the full path of the malicious DLL on the system
 
 For injecting our DLL into the target process, we would use the `LoadLibraryA()` function from `kernel32.dll` to load our DLL into the target process's virtual memory. This method, however has certain drawbacks:
 - It registers the DLL with the process so it might set off some flags to alert defenders
 - If a DLL has already been loaded once with `LoadLibraryA()`, it would not trigger execution on subsequent attempts. 
 
-With that in mind, lets walk through the code. First, we open a open a handle to the target process(`hProcess`). Then, we resolve the address of `LoadLibraryA` function from `kernel32.dll` using
+With that in mind, lets walk through the code. First, we open a open a handle to the target process(`hProcess`). Then, we dynamically resolve the address of `LoadLibraryA` function from `kernel32.dll` as such:
+
+- First, we use `GetModuleHandle()` to retrieve a module handle for the `kernel32.dll`, because thats where `LoadLibraryA()` function is defined.
+- Then, we use this handle to the module(`hModule`) along with `GetProcAddress()` to fetch the address of the `LoadLibraryA()` function.
+- Once we have the address to `LoadLibraryA()`, we can go ahead and free the module handle(`hModule`)
+
+Next up, we need to allocate memory with `VirtualAllocEx()` in the remote process's virtual address space to store the full location of the DLL(`DLL_PATH`). This time around, we need to set the permission for the 
+
