@@ -46,12 +46,12 @@ The `injectme()` function is where the magic happens. We use the `extern __decls
 
 We begin with allocating memory for our payload with `VirtualAlloc()`, like we did with `VirtualAllocEx()` during **Shellcode Injection**. However, one noticable difference is that: the permission of the memory region has been set to `PAGE_READWRITE` because we need to write our payload to it. 
 
-> In case of Shellcode Injection, the call to `WriteProcessMemory()` makes the region writeable for us and when the write operation is done, it restores the memory protection to its original state, but in this case, we gotta do this on our own and make sure the memory region is writeable.
+> In case of Shellcode Injection, the call to `WriteProcessMemory()` makes the region temporarily writeable for us and when the write operation is done, it restores the memory protection to its original state, but in this case, we gotta do this on our own and make sure the memory region is writeable. [See: [this Microsoft DevBlog](https://devblogs.microsoft.com/oldnewthing/20181206-00/?p=100415)]
 
 Once the memory has been allocated, we use `RtlMoveMemory()` to copy the payload over to the allocated memory region, and then proceed to change the memory protection to `PAGE_EXECUTE_READ` using `VirtualProtect()`. 
 
 > Note that we could have used `VirtualAlloc()` with `PAGE_EXECUTE_READWRITE` in the first place and skipped calling `VirtualProtect()` altogether. However, having `RWX` permission on a memory region sets off major red flags for AV engines.
- 
+
 Finally, we use `CreateThread()` and set the thread function to run our payload and wait till it finishes execution with `WaitForSingleObject()` just like in the **Shellcode Injection** example. Once the Thread finishes execution, we close the thread handle and return the back to the `DllMain` function. 
 
 This concludes the DLL source.
@@ -99,5 +99,17 @@ With that in mind, lets walk through the code. First, we open a open a handle to
 - Then, we use this handle to the module(`hModule`) along with `GetProcAddress()` to fetch the address of the `LoadLibraryA()` function.
 - Once we have the address to `LoadLibraryA()`, we can go ahead and free the module handle(`hModule`)
 
-Next up, we need to allocate memory with `VirtualAllocEx()` in the remote process's virtual address space to store the full location of the DLL(`DLL_PATH`). This time around, we need to set the permission for the 
+Next up, we need to allocate memory with `VirtualAllocEx()` in the remote process's virtual address space to store the full location of the DLL(`DLL_PATH`). This time around, we need to set the permission for the memory region as `PAGE_READWRITE` because we need to write our Dll's path (`DLL_PATH`) to it but there is no execution happening in the memory region.
+
+Once the memory has been allocated, we use `WriteProcessMemory()` to copy the full DLL path into the process's memory. Finally, we call `CreateRemoteThread()`, but this time, we pass the previously acquired address of `LoadLibraryA()`(`pLoadLibrary`) as the thread function and pass the address of memory location in the remote process where the full path to the DLL is stored(`pAddr`) as the variable to the thread function, and start the remote thread. 
+
+This essentially forces the remote process to execute the following instruction:
+
+```c
+LoadLibraryA("C:\\Path\\To\\injectme.dll")
+```
+
+As soon as the instruction is executed and the DLL is attached to the process, the payload is executed. We skip the wait stage for the thread by setting the timeout interval to `0` in `WaitForSingleObject()` and return as soon as exectuion finishes.
+
+When compiled and run, we should have our `Hello World!` message box popup from the target process.
 

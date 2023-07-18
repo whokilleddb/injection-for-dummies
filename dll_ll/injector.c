@@ -5,7 +5,7 @@
 #include <tlhelp32.h>
 
 #define TARGET "notepad.exe"
-#define DLL_PATH "C:\\Users\\whokilleddb\\Codes\\injection-for-dummies\\dll\\injectme.dll"
+#define DLL_PATH "C:\\Users\\whokilleddb\\Codes\\injection-for-dummies\\dll_ll\\injectme.dll"
 #define IS_HANDLE_INVALID(x) (x==NULL || x==INVALID_HANDLE_VALUE)
 
 // Find PID from a Process Name

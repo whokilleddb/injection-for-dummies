@@ -87,8 +87,8 @@ extern __declspec(dllexport) int injectme(void) {
         return -1;
     }
 
-    // Wait for thread to finish
-    int _result = WaitForSingleObject(hThread, -1);
+    // Do not enter a wait state
+    int _result = WaitForSingleObject(hThread, 0);
     if (_result == WAIT_FAILED) {
         fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
         CloseHandle(hThread);        
