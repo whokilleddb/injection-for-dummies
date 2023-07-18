@@ -5,14 +5,15 @@
 #include <tlhelp32.h>
 
 #define TARGET "notepad.exe"
-#define DLL_PATH "C:\\Users\\whokilleddb\\Codes\\injection-for-dummies\\dll\\injectme.dll"
+#define DLL_PATH "C:\\Users\\whokilleddb\\Codes\\injection-for-dummies\\dll_ll\\injectme.dll"
+#define IS_HANDLE_INVALID(x) (x==NULL || x==INVALID_HANDLE_VALUE)
 
 // Find PID from a Process Name
 DWORD find_pid(const char* procname) {
     DWORD pid = 0;
     PROCESSENTRY32 pe32;
     
-    // Take Snapshot all processes on the system
+    // Take Snapshot of all processes on the system
     // See: https://learn.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot
     HANDLE hProcSnap = CreateToolhelp32Snapshot(
         TH32CS_SNAPPROCESS, //  Take a snapshot of the processes
@@ -20,7 +21,7 @@ DWORD find_pid(const char* procname) {
     );
 
     // Check if handle is valid
-    if (INVALID_HANDLE_VALUE == hProcSnap) {
+    if (IS_HANDLE_INVALID(hProcSnap)) {
         fprintf(stderr, "[!] CreateToolhelp32Snapshot() failed (0x%x)\n", GetLastError());
         return 0;
     }
@@ -51,8 +52,8 @@ DWORD find_pid(const char* procname) {
 }
 
 // DLL Inject into Process
-int inject_dll_path(DWORD pid) {
-    printf("[i] Injecting: %s (%d)\n", DLL_PATH, sizeof(DLL_PATH));
+int inject_dll_ll(DWORD pid) {
+    printf("[i] Injecting DLL: %s\n", DLL_PATH);
 
     // Open handle to another process
 	HANDLE hProcess = OpenProcess(
@@ -62,14 +63,14 @@ int inject_dll_path(DWORD pid) {
     );
     
     // Check handle version
-    if (hProcess == INVALID_HANDLE_VALUE) {
+    if (IS_HANDLE_INVALID(hProcess)) {
         fprintf("[!] OpenProcess() failed (0x%x)\n", GetLastError());
         return -2;
     }
     // Resolve LoadLibrary
     // Get a Handle to Kernel32.dll
-    HANDLE hModule = GetModuleHandle("Kernel32.dll");
-    if (hModule == INVALID_HANDLE_VALUE) {
+    HMODULE hModule = GetModuleHandle("Kernel32.dll");
+    if (IS_HANDLE_INVALID(hModule)) {
         fprintf(stderr, "[!] GetModuleHandle() failed (0x%x)\n", GetLastError());
         CloseHandle(hProcess);
         return -1;
@@ -125,14 +126,14 @@ int inject_dll_path(DWORD pid) {
         NULL
     );
     
-    if (hThread == INVALID_HANDLE_VALUE) {
+    if (IS_HANDLE_INVALID(hThread)) {
         fprintf(stderr, "[!] CreateRemoteThread() failed (0x%x)\n", GetLastError());
         CloseHandle(hProcess);
         return -1;
     }
 
     int _result =  WaitForSingleObject(hThread, -1);
-    if (_result != 0) {
+    if (_result == WAIT_FAILED) {
         fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
         CloseHandle(hThread);    
         CloseHandle(hProcess);
@@ -144,7 +145,7 @@ int inject_dll_path(DWORD pid) {
     return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main() {
 	DWORD pid = find_pid(TARGET);
 	if ( pid == 0) {
 		fprintf(stderr, "[!] No %s found\n", TARGET);
@@ -153,7 +154,7 @@ int main(int argc, char *argv[]) {
 
 	printf("[i] %s: %d\n", TARGET, pid);
 
-    int result = inject_dll_path(pid);
+    int result = inject_dll_ll(pid);
     if (result < 0) {
         fprintf(stderr, "[!] Injection failed\n");
         return -1;

