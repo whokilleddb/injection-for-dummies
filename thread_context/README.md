@@ -1,4 +1,18 @@
-Before we get into the `inject_apc()` function, there is another function we need to take a look at first: `find_threadid()`.
+# Thread Context Injection
+In this injection technique, we hijack a thread in the remote process and set the instruction pointer to our payload in the target process's address space. This forces the remote thread to run our payload instead of whatever it was doing. One major drawback of this technique is that, if we hijack a critical thread, we might end up crashing the program into which we are injecting. With that out of the way, let us look at the code. 
+
+## The Code
+The program has a familiar `main()` function:
+```c
+int main() {
+    DWORD pid = find_pid(TARGET);
+    int result = inject_thread_context(pid);
+    return 0;
+}
+```
+The `main()` function finds the Process ID (`pid`) of the target process and passes it onto the `inject_thread_context()` function, where the magic happens. 
+
+But, before we get into the `inject_thread_context()` function, there is another function we need to take a look at first: `find_threadid()` - which is responsible for finding a valid Thread ID in the target process to which we can acquire a handle to.
 
 The `find_threadid()` function has the following code:
 ```c
