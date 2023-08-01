@@ -180,7 +180,7 @@ int inject_thread_context(DWORD pid) {
         return -1;
     }
 
-    ctx.ContextFlags = CONTEXT_FULL;   // retrieve all the necessary information about the thread's execution state
+    ctx.ContextFlags = CONTEXT_CONTROL;   // retrieve all the necessary information about the thread's execution state
 
     // Retrieves the context of the specified thread.
     bResult = GetThreadContext(hThread, &ctx);

@@ -56,7 +56,7 @@ int inject_thread_context(DWORD pid) {
     bResult = WriteProcessMemory(hProcess, pRemoteCode, (PVOID) payload, (SIZE_T) payload_len, (SIZE_T *) &bWritten);
 
     dResult = SuspendThread(hThread);
-    ctx.ContextFlags = CONTEXT_FULL;
+    ctx.ContextFlags = CONTEXT_CONTROL;
     bResult = GetThreadContext(hThread, &ctx);
     #ifdef _M_IX86 
         ctx.Eip = (DWORD_PTR) pRemoteCode;
@@ -83,4 +83,20 @@ We begin by finding a valid thread id belonging to the target process and once w
 
 Then, we use the `VirtualAllocEx()` and `WriteProcessMemory()` combination to allocate memory for our payload into the target process's virtual memory and copy our payload into the allocated memory region.
 
+Finally, we put the thread in suspended state using `SuspendThread()`. Then we proceed the fetch the context of the specified thread using `GetThreadContext()` function. The parameters passed to the function are:
+- The handle to the selected thread (`hThread`)
+- A pointer to a `CONTEXT` struct(`ctx`) with the `ContextFlags` set to `CONTEXT_CONTROL` to retrieve information about the various processor states, but most importantly the value of `Eip`/`Rip` register.
 
+The `GetThreadContext()` function populates the `CONTEXT` structure(`ctx`) with the requested information. Next up, we check if the `_M_IX86` pre-processor directive is defined or not. This helps us to determine if the compilation is done for x86 or x64, and according to the architecture, we point the respective Instruction Pointer to the address of the payload in the target process's virtual memory. 
+
+With this thread context now modified and the instruction pointer now pointing to the payload, we use the `SetThreadContext()` function to update the thread context. Then, we use the `ResumeThread()` function to resume the execution of the thread from the suspended state.  
+
+Finally, we wait for the thread to complete execution with `WaitForSingleObject()` and then close all open handles like good boys.
+
+Compiling and running our program, we see our _"Hello World"_ message box pop up as expected!
+
+![](./imgs/thread_context.png)
+
+We can also see the Thread ID of the thread we hijacked in Process Hacker2 as:
+
+![](./imgs/thread_context_process_hacker.png)
