@@ -73,4 +73,14 @@ int inject_thread_context(DWORD pid) {
 }
 ```
 
-The function 
+The function can be broken into four major parts:
+- Opening necessary handles
+- Allocating memory and copying payload in the target process's virtual memory
+- Setting thread context to our payload
+- Waiting for our payload to finish execution
+
+We begin by finding a valid thread id belonging to the target process and once we have it, we get a handle to it using `OpenThread()` as well as fetching a handle to the target process using `OpenProcess()`.
+
+Then, we use the `VirtualAllocEx()` and `WriteProcessMemory()` combination to allocate memory for our payload into the target process's virtual memory and copy our payload into the allocated memory region.
+
+
