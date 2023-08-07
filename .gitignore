@@ -3,4 +3,6 @@
 *.exp
 *.lib
 *.dll
+*.ilk
+*.pdb
 .vscode/

