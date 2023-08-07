@@ -7,10 +7,10 @@ This is where **Earlybird Injection** comes in handy by making sure that our pay
 Lets begin with the `main()` function:
 
 ```c
-    printf("[i] Spawing and injecting into:\t%s\n", TARGET);
-    int result = inject_earlybird();
-    printf("[i] Injection Complete!\n");
-    return 0;
+printf("[i] Spawing and injecting into:\t%s\n", TARGET);
+int result = inject_earlybird();
+printf("[i] Injection Complete!\n");
+return 0;
 ```
 
 The first difference we notice is that we do not have a `find_pid()` function like other examples. This is because we _launch_ the target process instead of injecting into an already running process. So, let's look into the `inject_earlybird()` function:
