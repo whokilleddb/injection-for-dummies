@@ -78,13 +78,15 @@ But the question is, why? We did not set the thread into an alertable state. The
 ![](./imgs/earlybird_msgbox_in_mem.png)
 
 Notice the call stack:
+
 ![](./imgs/earlybird_callstack.png)
 
 The interesting function to notice here is the `NtTestAlert()` function which in turn calls `KiUserApcDispatch()` which calls `RtlDispatchAPC()` which finally calls our payload. 
 
 Putting `NtTestAlert()` function under the debugger we get the following:
+
 ![](./imgs/earlybird_nttestalert.png)
 
 It essentially issues a syscall which is used to empty APC queue for the current thread. If there are any lined up APC objects in the queue, it calls `KiUserApcDispatch()`. The `KiUserApcDispatch()` function is responsible for dispatching user-mode APCs to the appropriate user-mode thread. When a user-mode APC is scheduled, it's placed in a queue associated with a particular thread. The thread, when it's in a suitable state (like transitioning from kernel mode to user mode), checks this queue for pending APCs and, if any are found, the thread's execution is interrupted, and the APC code is executed in the thread's user-mode context. That explains how our payload was executed! 
 
-![](https://i.insider.com/5abb9e6a3216741c008b462d)
+![](https://i.insider.com/5abb9e6a3216741c008b462d?width=600)
