@@ -49,8 +49,8 @@ int inject_earlybird() {
     void * pRemoteCode;
     
     ZeroMemory( &si, sizeof(si) );
-    si.cb = sizeof(si);
     ZeroMemory( &pi, sizeof(pi) );
+    si.cb = sizeof(si);
 
     BOOL bResult = CreateProcessA(
         0,
@@ -64,9 +64,7 @@ int inject_earlybird() {
         &si, 
         &pi
     );
-    CloseHandle(si.hStdInput);
-    CloseHandle(si.hStdError);
-    CloseHandle(si.hStdOutput);
+
     if (!bResult) {
         fprintf(stderr, "[!] CreateProcessA() failed! (0x%x)\n", GetLastError());
         return -1;
