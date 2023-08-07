@@ -114,7 +114,7 @@ int inject_earlybird() {
         CloseHandle(pi.hThread);
         return -1;
     }
-    
+
     dResult = ResumeThread(pi.hThread);
     if (dResult == (DWORD)-1) {
         fprintf(stderr, "[!] ResumeThread() failed! (0x%x)\n", GetLastError());

@@ -69,4 +69,22 @@ Next up is the familiar process of allocating memory in the target process(`note
 
 Then, just like in the case of **APC Injection** technique, we use `QueueUserApc()` to add an APC object to the main thread of the suspended target process. With the object now queued, we resume the primary thread with `ResumeThread()` function which should lead to the execution of the payload. 
 
-But the question is, why? Why does `ResumeThread()` function cause the APC object to be executed?
+Compiling and running our code, we should see that we have our payload running in the context of the target program without having to enter a _"Wait-and-Pray"_ state:
+
+![](./imgs/eartlybird_injection.png)
+
+But the question is, why? We did not set the thread into an alertable state. The how did the payload get executed? To understand that, we set a breakpoint at our payload address in the target process and run our code. 
+
+![](./imgs/earlybird_msgbox_in_mem.png)
+
+Notice the call stack:
+![](./imgs/earlybird_callstack.png)
+
+The interesting function to notice here is the `NtTestAlert()` function which in turn calls `KiUserApcDispatch()` which calls `RtlDispatchAPC()` which finally calls our payload. 
+
+Putting `NtTestAlert()` function under the debugger we get the following:
+![](./imgs/earlybird_nttestalert.png)
+
+It essentially issues a syscall which is used to empty APC queue for the current thread. If there are any lined up APC objects in the queue, it calls `KiUserApcDispatch()`. The `KiUserApcDispatch()` function is responsible for dispatching user-mode APCs to the appropriate user-mode thread. When a user-mode APC is scheduled, it's placed in a queue associated with a particular thread. The thread, when it's in a suitable state (like transitioning from kernel mode to user mode), checks this queue for pending APCs and, if any are found, the thread's execution is interrupted, and the APC code is executed in the thread's user-mode context. That explains how our payload was executed! 
+
+![](https://i.insider.com/5abb9e6a3216741c008b462d)
