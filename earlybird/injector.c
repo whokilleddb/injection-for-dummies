@@ -41,9 +41,7 @@ unsigned char payload[] =
 size_t payload_len = sizeof(payload);
 
 int inject_earlybird() {
-    int pid = 0;
     DWORD bWritten = 0;
-    HANDLE hProc = NULL;
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
     void * pRemoteCode;
