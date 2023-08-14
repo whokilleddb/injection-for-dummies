@@ -53,4 +53,4 @@ Compiling and running the program, we are able to run our payload in the context
 
 ![](./imgs/apc.png)
 
-Note that for APC injections, it is very difficult to determine when the payload will be triggered (if it is triggered at all) depending upon which thread we are selecting and the already lined up APC objects in queue. Hence, it might not be the most reliable injection method. 
+Note that for APC injections, it is very difficult to determine when the payload will be triggered (if it is triggered at all) depending upon which thread we are selecting and the already lined up APC objects in the APC queue. Hence, it might not be the most reliable injection method. 

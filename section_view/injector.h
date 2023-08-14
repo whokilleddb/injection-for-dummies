@@ -17,7 +17,6 @@ typedef struct _CLIENT_ID {
 	HANDLE UniqueThread;
 } CLIENT_ID, *PCLIENT_ID;
 
-
 typedef VOID (WINAPI * RtlMoveMemory_t)(
 	VOID UNALIGNED *Destination, 
 	const VOID UNALIGNED *Source, 

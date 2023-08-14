@@ -86,6 +86,7 @@ int inject_section_view(DWORD pid) {
     HANDLE hSection = NULL;
     PVOID pLocalView = NULL; 
     PVOID pRemoteView = NULL;
+    BOOL bResult;
 
     // Resolve Functions
     HMODULE hNtdll = GetModuleHandle("NTDLL.DLL");
@@ -97,6 +98,11 @@ int inject_section_view(DWORD pid) {
 	NtCreateSection_t pNtCreateSection = (NtCreateSection_t) GetProcAddress(hNtdll, "NtCreateSection");
     NtMapViewOfSection_t pNtMapViewOfSection = (NtMapViewOfSection_t) GetProcAddress(hNtdll, "NtMapViewOfSection");
 	RtlCreateUserThread_t pRtlCreateUserThread = (RtlCreateUserThread_t) GetProcAddress(hNtdll, "RtlCreateUserThread");
+    bResult = FreeLibrary(hNtdll);
+    if (!bResult) {
+        fprintf(stderr, "[!] FreeLibrary() failed (0x%x)\n", GetLastError());
+        return -1;
+    }
 
     if (pNtCreateSection == NULL || pNtMapViewOfSection == NULL || pRtlCreateUserThread == NULL) {
         fprintf(stderr, "[!] Failed to resolve functions\n");
