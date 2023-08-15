@@ -20,8 +20,8 @@ int main() {
 }
 ```
 
-The 
-````c
+The `inject_section_view()` function has the following structure:
+```c
 // map section views injection
 int inject_section_view(DWORD pid) {
 	CLIENT_ID cid;
@@ -53,6 +53,16 @@ int inject_section_view(DWORD pid) {
     CloseHandle(hProcess);
     return 0;
 }
+```
 
-``
+The program can be roughly divided into three parts. We begin with dynamically resolving the addresses of  `NtCreateSection`, `NtMapViewOfSection` and `RtlCreateUserThread` from `NtDLL` using a combination of `GetModuleHandle()` and `GetProcAddress()`. Once we have the addresses we need, we free the module handle with `FreeLibrary()` because that is the right thing to do 🥰
 
+Next up, we use `NtCreateSection()` to create a section object with the following parameters: 
+- `&hSection`: This is a pointer to a HANDLE variable that will receive the handle to the created section object. 
+- `SECTION_ALL_ACCESS`: This parameter specifies the desired access rights for the section object. In this case, we want to have all possible access rights to the section including read, write, and execute permissions, among others.
+- `NULL`: This parameter represents a pointer to a `SECURITY_DESCRIPTOR` structure, which is used to control security settings for the object. Passing `NULL` indicates that the default security settings should be used.
+- `(PLARGE_INTEGER) &payload_len`: This indicates the size of the section object to be created. In this case, we type cast the address of the variable holding the size of the payload(`&payload_len`) to a `PLARGE_INTEGER`.
+- `SEC_COMMIT`: This parameter specifies that the memory for the section should be immediately allocated and committed, making it available for use.
+- `NULL`: This parameter represents a pointer to a `SEC_IMAGE_INFORMATION` structure. It's used for image files and can be safely set to `NULL` when not applicable.
+
+Once the section object has been created, then we map it to the current process's virtual address space using `NtMapViewOfSection()`
