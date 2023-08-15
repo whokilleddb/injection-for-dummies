@@ -12,9 +12,12 @@ In this repository, we discuss some of the most popular injection techniques and
 | Thread Context | Hijack remote process's thread to execute malicious shellcode |
 | APC | Use APC calls to run Remote payload Asynchronously |
 | Earlybird | A modification of the APC technique |gi 
+| Section Views | Use shared memory sections to deliver payloads |
 
 ## Pre-requisites
-Though I have tried to be verbose with the techniques here, it is highly recommended that the reader is familiar with basics of C programming on Windows and is familiar with the commonly used functions like `VirtualAlloc()`, `VirtualProctect()`, `GetProcAddress()`, `GetModuleHandle()`, etc.
+Though I have tried to be verbose with the techniques here, it is highly recommended that the reader is familiar with the basics of C programming on Windows and is familiar with the commonly used functions like `VirtualAlloc()`, `VirtualProctect()`, `GetProcAddress()`, `GetModuleHandle()`, etc.
+
+I have also tried to be as descriptive as possible with the different parameters I pass to functions but I would still suggest looking up MSDN for each new function you come across. 
 
 ## Notes
 - The payload used in most cases here is a `Windows Message Box` payload which says `"Hello World!"`, unless mentioned otherwise. 
