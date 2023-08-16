@@ -2,9 +2,11 @@
 
 [MSDN](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/section-objects-and-views) describes Sections and Views as:
 
-> A section object represents a section of memory that can be shared. A process can use a section object to share parts of its memory address space (memory sections) with other processes. Section objects also provide the mechanism by which a process can map a file into its memory address space.
+> A section object represents a section of memory that can be shared. A process can use a section object to share parts of its memory address space (memory sections) with other processes. 
 
 > Each memory section has one or more corresponding views. A view of a section is a part of the section that is actually visible to a process. The act of creating a view for a section is known as mapping a view of the section. Each process that is manipulating the contents of a section has its own view; a process can also have multiple views (to the same or different sections).
+
+TLDR: A section is a region of memory that can be shared between two processes. This a process to share a part of it's virtual address space with other processes. To make this memory region available to the processes, we need to create a _"view"_ of the Section. This allows the process to access and manipulate the contents of the section as if it were regular memory. 
 
 Essentially, this allows processes to share memory regions with each other and henceforth, we will see how we can use this mechanism to inject code into a remote process. 
 
